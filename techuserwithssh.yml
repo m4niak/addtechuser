@@ -1,0 +1,97 @@
+---
+- hosts: LAB
+  become: yes
+
+  tasks:
+  - name: add tech user
+    user:
+      name: tech
+      uid: 7000
+      password: '*'
+      expires: -1
+      comment: "Konto techniczne"
+      state: present
+
+  - name: logowanie tylko po kluczach
+    shell: usermod -p '*' tech
+
+  - name: ustawienia waznosci hasla
+    shell: chage -M -1 tech
+    ignore_errors: true
+
+  - name: ustawienie waznosci konta
+    shell: chage -E -1 tech
+    ignore_errors: true
+
+  - name: utworzenie katalogu .ssh
+    file: path=/home/tech/.ssh state=directory owner=tech group=tech mode=700
+
+  - name: przeniesienie pliku authorized_keys  
+    authorized_key:
+      user: tech
+      state: present
+      key: "{{ lookup('file', 'tech.pub') }}"
+      
+  - name: dodanie usera tech do crontab
+    lineinfile:
+      dest: /etc/cron.allow
+      state: present
+      insertafter: 'root'
+      line: '{{ item.chain }}'
+    with_items:
+    - { chain: tech }
+
+  - name: dodanie portu ssh 2022
+    lineinfile:
+      dest: /etc/ssh/sshd_config
+      state: present
+      insertafter: 'Port 22'
+      line: '{{ item.chain }}'
+    with_items:
+    - { chain: Port 2022 }
+
+  - name: instalowanie polityki selinux
+    shell:
+      cmd: 'yum -y install policycoreutils-python'
+
+  - name: selinux polityki
+    shell:
+      cmd: 'semanage port -a -t ssh_port_t -p tcp 2022'
+    ignore_errors: yes
+
+  - name: firewall add port 2022
+    shell:
+      cmd: 'firewall-cmd --permanent --zone=public --add-port=2022/tcp'
+
+  - name: firewall reload
+    shell:
+      cmd: 'firewall-cmd --reload'
+
+  - name: restart sshd
+    shell:
+      cmd: 'systemctl restart sshd.service'
+
+  - name: update VM
+    yum:
+      name: '*'
+      state: latest
+    
+  - name: instalacja modulu
+    yum:
+      name: "{{ modul }}"
+    vars:
+      modul:
+      - nmap-ncat
+      - rsync
+      - bind-utils
+      - mc
+      - python
+    ignore_erros: yes
+
+  - name: Copy file with owner and permissions
+    copy:
+      src: /home/kuba/batcave/roles/kopiowanie/files/test01.txt
+      dest: /home/kuba/test01.txt
+      owner: kuba
+      group: kuba 
+      mode: '0644'
