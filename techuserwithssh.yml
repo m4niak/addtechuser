@@ -88,10 +88,22 @@
       - python
     ignore_erros: yes
 
-  - name: Copy file with owner and permissions
+  - name: tworzenie folderu
+    file:
+      path: /usr/share/pam-configs
+      state: directory
+      owner: root
+      group: root
+      mode: 0775
+      recurse: yes
+
+  - name: copy limits
     copy:
-      src: /home/kuba/batcave/roles/kopiowanie/files/test01.txt
-      dest: /home/kuba/test01.txt
-      owner: kuba
-      group: kuba 
-      mode: '0644'
+      src: '{{ item.adres1 }}'
+      dest: '/usr/share/pam-configs/'
+      owner: root
+      group: root
+      mode: '0664'
+    with_items:
+      - { adres1: "/home/kuba/batcave/playbooks/roles/kopiowanie/files/" }
+    ignore_errors: yes
